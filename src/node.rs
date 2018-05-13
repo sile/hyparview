@@ -1,14 +1,13 @@
 use rand::{self, Rng, ThreadRng};
 use std::collections::VecDeque;
 
-use message::{Message, Priority, TimeToLive};
+use {Action, Event, Message, TimeToLive};
 
 #[derive(Debug)]
 pub struct Node<T, R = ThreadRng> {
     id: T,
     rng: R,
     actions: VecDeque<Action<T>>,
-    events: VecDeque<Event<T>>,
     active_view: Vec<T>,
     passive_view: Vec<T>,
     max_active_view_size: u8,
@@ -35,7 +34,6 @@ where
             id: node_id,
             rng,
             actions: VecDeque::new(),
-            events: VecDeque::new(),
             active_view: Vec::new(),
             passive_view: Vec::new(),
             max_active_view_size: 4,
@@ -65,7 +63,10 @@ where
                 new_node,
                 ttl,
             } => self.handle_forward_join(sender, new_node, ttl),
-            Message::Neighbor { sender, priority } => self.handle_neighbor(sender, priority),
+            Message::Neighbor {
+                sender,
+                high_priority,
+            } => self.handle_neighbor(sender, high_priority),
             Message::Shuffle { sender, nodes, ttl } => self.handle_shuffle(sender, nodes, ttl),
             Message::ShuffleReply { nodes } => self.handle_shuffle_reply(nodes),
         }
@@ -97,7 +98,7 @@ where
             let message = Message::ForwardJoin {
                 sender: self.id.clone(),
                 new_node: new_node.clone(),
-                ttl: TimeToLive(self.active_random_walk_len),
+                ttl: TimeToLive::new(self.active_random_walk_len),
             };
             self.send_message(n, message);
         }
@@ -112,14 +113,14 @@ where
             }
             self.add_to_active_view(new_node);
         } else {
-            if ttl.0 == self.passive_random_walk_len {
+            if ttl.as_u8() == self.passive_random_walk_len {
                 self.add_to_passive_view(new_node.clone());
             }
             if let Some(destination) = self.select_forwarding_destination(&sender) {
                 let message = Message::ForwardJoin {
                     sender: self.id.clone(),
                     new_node,
-                    ttl: TimeToLive(ttl.0 - 1),
+                    ttl: ttl.decrement(),
                 };
                 self.send_message(destination, message);
             }
@@ -143,12 +144,12 @@ where
         }
     }
 
-    fn handle_neighbor(&mut self, sender: T, priority: Priority) {
+    fn handle_neighbor(&mut self, sender: T, high_priority: bool) {
         if self.active_view.iter().find(|n| **n == sender).is_some() {
             return;
         }
 
-        if priority == Priority::High {
+        if high_priority {
             if self.is_active_view_full() {
                 self.drop_random_element_from_active_view();
             }
@@ -179,7 +180,7 @@ where
                 let message = Message::Shuffle {
                     sender,
                     nodes,
-                    ttl: TimeToLive(ttl.0),
+                    ttl: ttl.decrement(),
                 };
                 self.send_message(destination, message);
             }
@@ -204,13 +205,15 @@ where
         // Assumes the active view does not contain `node`. (TODO)
         let message = Message::Neighbor {
             sender: self.id.clone(),
-            priority: Priority::High,
+            high_priority: true,
         };
         self.send_message(node.clone(), message);
 
         self.remove_from_passive_view(&node);
         self.active_view.push(node.clone());
-        self.events.push_back(Event::AddedToActiveView { node });
+        self.actions.push_back(Action::Notify {
+            event: Event::NeighborUp { node },
+        });
     }
 
     fn add_to_passive_view(&mut self, node: T) {
@@ -219,15 +222,15 @@ where
             self.drop_random_element_from_passive_view();
         }
         self.passive_view.push(node.clone());
-        self.events.push_back(Event::AddedToPassiveView { node });
     }
 
     fn remove_from_active_view(&mut self, node: &T) {
         let position = self.active_view.iter().position(|n| n == node);
         if let Some(i) = position {
             self.active_view.swap_remove(i);
-            self.events
-                .push_back(Event::RemovedFromActiveView { node: node.clone() });
+            self.actions.push_back(Action::Notify {
+                event: Event::NeighborDown { node: node.clone() },
+            });
             self.actions
                 .push_back(Action::Disconnect { node: node.clone() });
             self.add_to_passive_view(node.clone());
@@ -237,10 +240,7 @@ where
     fn remove_from_passive_view(&mut self, node: &T) {
         let position = self.passive_view.iter().position(|n| n == node);
         if let Some(i) = position {
-            let node = node.clone();
             self.passive_view.swap_remove(i);
-            self.events
-                .push_back(Event::RemovedFromPassiveView { node });
         }
     }
 
@@ -253,21 +253,4 @@ where
         let i = self.rng.gen_range(0, self.passive_view.len());
         self.passive_view.swap_remove(i);
     }
-}
-
-#[derive(Debug)]
-pub enum Action<T> {
-    Send { destination: T, message: Message<T> },
-    Disconnect { node: T },
-    // Notify(Event<T>)
-}
-
-#[derive(Debug)]
-pub enum Event<T> {
-    // NeighborUp
-    // NeighborDown
-    AddedToActiveView { node: T },
-    AddedToPassiveView { node: T },
-    RemovedFromActiveView { node: T }, // TODO: remove
-    RemovedFromPassiveView { node: T },
 }

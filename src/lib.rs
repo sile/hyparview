@@ -1,12 +1,9 @@
 extern crate rand;
 
-pub mod message;
+pub use message::Message;
+pub use misc::{Action, Event, TimeToLive};
+
 pub mod node;
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}
+mod message;
+mod misc;

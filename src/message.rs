@@ -1,16 +1,4 @@
-#[derive(Debug, Clone, Copy)]
-pub struct TimeToLive(pub u8);
-impl TimeToLive {
-    pub fn is_expired(&self) -> bool {
-        self.0 == 0
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Priority {
-    High,
-    Low,
-}
+use TimeToLive;
 
 #[derive(Debug, Clone)]
 pub enum Message<T> {
@@ -24,7 +12,7 @@ pub enum Message<T> {
     },
     Neighbor {
         sender: T,
-        priority: Priority,
+        high_priority: bool,
     },
     Shuffle {
         sender: T, // TODO: origin
