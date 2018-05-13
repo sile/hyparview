@@ -1,0 +1,7 @@
+[package]
+name = "hyparview"
+version = "0.0.1"
+authors = ["Takeru Ohta <phjgt308@gmail.com>"]
+
+[dependencies]
+rand = "0.4"
