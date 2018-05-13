@@ -28,8 +28,8 @@ where
         Node {
             id: node_id,
             actions: VecDeque::new(),
-            active_view: Vec::new(),
-            passive_view: Vec::new(),
+            active_view: Vec::with_capacity(options.max_active_view_size as usize),
+            passive_view: Vec::with_capacity(options.max_passive_view_size as usize),
             options,
         }
     }
