@@ -1,26 +1,22 @@
-use rand::{self, Rng, ThreadRng};
+use rand::{Rng, ThreadRng};
 use std::collections::VecDeque;
 
-use {Action, Event, Message, TimeToLive};
+use {Action, Event, Message, NodeOptions, TimeToLive};
 
 #[derive(Debug)]
 pub struct Node<T, R = ThreadRng> {
     id: T,
-    rng: R,
     actions: VecDeque<Action<T>>,
     active_view: Vec<T>,
     passive_view: Vec<T>,
-    max_active_view_size: u8,
-    max_passive_view_size: u8,
-    active_random_walk_len: u8,
-    passive_random_walk_len: u8,
+    options: NodeOptions<R>,
 }
 impl<T> Node<T, ThreadRng>
 where
     T: Clone + PartialEq,
 {
     pub fn new(node_id: T) -> Self {
-        Node::with_rng(node_id, rand::thread_rng())
+        Node::with_options(node_id, NodeOptions::default())
     }
 }
 impl<T, R> Node<T, R>
@@ -28,18 +24,13 @@ where
     T: Clone + PartialEq,
     R: Rng,
 {
-    // TODO: builder
-    pub fn with_rng(node_id: T, rng: R) -> Self {
+    pub fn with_options(node_id: T, options: NodeOptions<R>) -> Self {
         Node {
             id: node_id,
-            rng,
             actions: VecDeque::new(),
             active_view: Vec::new(),
             passive_view: Vec::new(),
-            max_active_view_size: 4,
-            max_passive_view_size: 24,
-            active_random_walk_len: 5,
-            passive_random_walk_len: 2,
+            options,
         }
     }
 
@@ -79,12 +70,32 @@ where
         self.actions.pop_front()
     }
 
-    pub fn is_active_view_full(&self) -> bool {
-        self.active_view.len() == self.max_active_view_size as usize
+    pub fn id(&self) -> &T {
+        &self.id
     }
 
-    pub fn is_passive_view_full(&self) -> bool {
-        self.passive_view.len() == self.max_passive_view_size as usize
+    pub fn active_view(&self) -> &[T] {
+        &self.active_view
+    }
+
+    pub fn passive_view(&self) -> &[T] {
+        &self.passive_view
+    }
+
+    pub fn options(&self) -> &NodeOptions<R> {
+        &self.options
+    }
+
+    pub fn options_mut(&mut self) -> &mut NodeOptions<R> {
+        &mut self.options
+    }
+
+    fn is_active_view_full(&self) -> bool {
+        self.active_view.len() == self.options.max_active_view_size as usize
+    }
+
+    fn is_passive_view_full(&self) -> bool {
+        self.passive_view.len() == self.options.max_passive_view_size as usize
     }
 
     fn handle_join(&mut self, new_node: T) {
@@ -98,7 +109,7 @@ where
             let message = Message::ForwardJoin {
                 sender: self.id.clone(),
                 new_node: new_node.clone(),
-                ttl: TimeToLive::new(self.active_random_walk_len),
+                ttl: TimeToLive::new(self.options.active_random_walk_len),
             };
             self.send_message(n, message);
         }
@@ -113,7 +124,7 @@ where
             }
             self.add_to_active_view(new_node);
         } else {
-            if ttl.as_u8() == self.passive_random_walk_len {
+            if ttl.as_u8() == self.options.passive_random_walk_len {
                 self.add_to_passive_view(new_node.clone());
             }
             if let Some(destination) = self.select_forwarding_destination(&sender) {
@@ -139,7 +150,7 @@ where
         if max == 0 {
             None
         } else {
-            let i = self.rng.gen_range(0, max);
+            let i = self.options.rng.gen_range(0, max);
             Some(self.active_view[i].clone())
         }
     }
@@ -163,7 +174,7 @@ where
 
     fn handle_shuffle(&mut self, sender: T, nodes: Vec<T>, ttl: TimeToLive) {
         if ttl.is_expired() {
-            self.rng.shuffle(&mut self.passive_view);
+            self.options.rng.shuffle(&mut self.passive_view);
             let reply_nodes = self.passive_view
                 .iter()
                 .take(nodes.len())
@@ -245,12 +256,12 @@ where
     }
 
     fn drop_random_element_from_active_view(&mut self) {
-        let i = self.rng.gen_range(0, self.active_view.len());
+        let i = self.options.rng.gen_range(0, self.active_view.len());
         self.active_view.swap_remove(i);
     }
 
     fn drop_random_element_from_passive_view(&mut self) {
-        let i = self.rng.gen_range(0, self.passive_view.len());
+        let i = self.options.rng.gen_range(0, self.passive_view.len());
         self.passive_view.swap_remove(i);
     }
 }
