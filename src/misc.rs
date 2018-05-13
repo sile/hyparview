@@ -26,6 +26,23 @@ pub enum Action<T> {
     Disconnect { node: T },
     Notify { event: Event<T> },
 }
+impl<T> Action<T> {
+    pub(crate) fn disconnect(node: T) -> Self {
+        Action::Disconnect { node }
+    }
+
+    pub(crate) fn notify_up(node: T) -> Self {
+        Action::Notify {
+            event: Event::NeighborUp { node },
+        }
+    }
+
+    pub(crate) fn notify_down(node: T) -> Self {
+        Action::Notify {
+            event: Event::NeighborDown { node },
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum Event<T> {
