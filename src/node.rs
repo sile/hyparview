@@ -330,9 +330,5 @@ where
 }
 
 fn send<T>(actions: &mut VecDeque<Action<T>>, destination: T, message: Message<T>) {
-    let action = Action::Send {
-        destination,
-        message,
-    };
-    actions.push_back(action);
+    actions.push_back(Action::send(destination, message));
 }

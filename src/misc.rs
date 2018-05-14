@@ -44,12 +44,14 @@ impl TimeToLive {
 /// Actions instructed by HyParView [Node](./struct.Node.html).
 ///
 /// For running HyParView nodes, the users must handle the actions correctly.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Action<T> {
     /// Send a message.
     ///
     /// If there is no existing connection between the sender and the destination,
     /// new connection should be established automatically.
+    ///
+    /// If the destination node does not exist, the message will be discarded silently.
     ///
     /// Although it is not recommended,
     /// it is acceptable for discarding some messages
@@ -81,6 +83,13 @@ pub enum Action<T> {
     },
 }
 impl<T> Action<T> {
+    pub(crate) fn send(destination: T, message: Message<T>) -> Self {
+        Action::Send {
+            destination,
+            message,
+        }
+    }
+
     pub(crate) fn disconnect(node: T) -> Self {
         Action::Disconnect { node }
     }
@@ -99,7 +108,7 @@ impl<T> Action<T> {
 }
 
 /// Events emitted by HyParView [Node](./struct.Node.html).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Event<T> {
     /// New neighbor node arrived.
     ///

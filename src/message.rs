@@ -7,7 +7,7 @@ use TimeToLive;
 /// (e.g., Disconnections at the TCP level may be used for that purpose).
 ///
 /// [HyParView]: http://asc.di.fct.unl.pt/~jleitao/pdf/dsn07-leitao.pdf
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Message<T> {
     /// `JOIN` message.
     ///
