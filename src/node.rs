@@ -113,7 +113,7 @@ where
                 nodes,
                 ttl,
             } => self.handle_shuffle(sender, origin, nodes, ttl),
-            Message::ShuffleReply { sender, nodes } => self.handle_shuffle_reply(sender, nodes),
+            Message::ShuffleReply { nodes, .. } => self.handle_shuffle_reply(nodes),
         }
         self.disconnect_unless_active_view_node(sender);
     }
@@ -170,6 +170,7 @@ where
         self.passive_view.len() >= self.options.max_passive_view_size as usize
     }
 
+    #[cfg_attr(feature = "cargo-clippy", allow(needless_pass_by_value))]
     fn handle_join(&mut self, new_node: T) {
         self.add_to_active_view(new_node.clone());
         let ttl = TimeToLive::new(self.options.active_random_walk_len);
@@ -179,6 +180,7 @@ where
         }
     }
 
+    #[cfg_attr(feature = "cargo-clippy", allow(needless_pass_by_value))]
     fn handle_forward_join(&mut self, sender: T, new_node: T, ttl: TimeToLive) {
         if ttl.is_expired() || self.active_view.is_empty() {
             self.add_to_active_view(new_node);
@@ -195,10 +197,11 @@ where
 
     fn handle_neighbor(&mut self, sender: T, high_priority: bool) {
         if high_priority || !self.is_active_view_full() {
-            self.add_to_active_view(sender.clone());
+            self.add_to_active_view(sender);
         }
     }
 
+    #[cfg_attr(feature = "cargo-clippy", allow(needless_pass_by_value))]
     fn handle_shuffle(&mut self, sender: T, origin: T, nodes: Vec<T>, ttl: TimeToLive) {
         if ttl.is_expired() {
             self.options.rng.shuffle(&mut self.passive_view);
@@ -210,15 +213,13 @@ where
             let message = Message::shuffle_reply(&self.id, reply_nodes);
             send(&mut self.actions, origin.clone(), message);
             self.add_shuffled_nodes_to_passive_view(nodes);
-        } else {
-            if let Some(destination) = self.select_forwarding_destination(&[&origin, &sender]) {
-                let message = Message::shuffle(&self.id, origin, nodes, ttl.decrement());
-                send(&mut self.actions, destination, message);
-            }
+        } else if let Some(destination) = self.select_forwarding_destination(&[&origin, &sender]) {
+            let message = Message::shuffle(&self.id, origin, nodes, ttl.decrement());
+            send(&mut self.actions, destination, message);
         }
     }
 
-    fn handle_shuffle_reply(&mut self, _sender: T, nodes: Vec<T>) {
+    fn handle_shuffle_reply(&mut self, nodes: Vec<T>) {
         self.add_shuffled_nodes_to_passive_view(nodes);
     }
 
