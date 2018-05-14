@@ -3,6 +3,19 @@ use std::collections::VecDeque;
 
 use {Action, Message, NodeOptions, TimeToLive};
 
+/// HyParView node.
+///
+/// # Note on the guarantee of the connectivity of a HyParView cluster
+///
+/// Because HyParView is a probabilistic algorithm,
+/// there is no strong guarantee about the connectivity of the nodes which consist a cluster.
+///
+/// If the membership of a cluster changes drastically,
+/// there is a (usually very low) possibility that the cluster will be splitted to some sub-clusters.
+///
+/// For recovering the connectivity,
+/// an upper layer have to provide some kind of connectivity checking mechanism.
+/// And when the cluster division is detected, `Node::join` method should be called in some nodes.
 #[derive(Debug)]
 pub struct Node<T, R = ThreadRng> {
     id: T,
@@ -15,6 +28,7 @@ impl<T> Node<T, ThreadRng>
 where
     T: Clone + Eq,
 {
+    /// Makes a new `Node` instance with the default options.
     pub fn new(node_id: T) -> Self {
         Node::with_options(node_id, NodeOptions::default())
     }
@@ -24,6 +38,7 @@ where
     T: Clone + Eq,
     R: Rng,
 {
+    /// Makes a new `Node` instance with the given options.
     pub fn with_options(node_id: T, options: NodeOptions<R>) -> Self {
         Node {
             id: node_id,
@@ -34,21 +49,51 @@ where
         }
     }
 
+    /// Returns a reference to the ID of the instance.
+    pub fn id(&self) -> &T {
+        &self.id
+    }
+
+    /// Returns a reference to the active view of the instance.
+    pub fn active_view(&self) -> &[T] {
+        &self.active_view
+    }
+
+    /// Returns a reference to the passive view of the instance.
+    pub fn passive_view(&self) -> &[T] {
+        &self.passive_view
+    }
+
+    /// Returns a reference to the options of the instance.
+    pub fn options(&self) -> &NodeOptions<R> {
+        &self.options
+    }
+
+    /// Returns a mutable reference to the options of the instance.
+    pub fn options_mut(&mut self) -> &mut NodeOptions<R> {
+        &mut self.options
+    }
+
+    /// Starts joining the cluster to which `contact_node_id` belongs.
+    ///
+    /// This method may be called multiple times for recovering cluster connectivity
+    /// if an upper layer detects the cluster is splitted to sub-clusters.
     pub fn join(&mut self, contact_node_id: T) {
         send(&mut self.actions, contact_node_id, Message::join(&self.id));
     }
 
-    pub fn disconnect(&mut self, node: T) {
-        self.remove_from_active_view(&node);
-        if !self.is_active_view_full() {
-            if let Some(node) = self.select_random_from_passive_view() {
-                let high_priority = self.active_view.is_empty();
-                let message = Message::neighbor(&self.id, high_priority);
-                send(&mut self.actions, node, message);
-            }
-        }
+    /// Removes `node` from the active view of the instance.
+    ///
+    /// If there is no such node, it is simply ignored.
+    ///
+    /// If the active view is not full, a node randomly selected from the passive view
+    /// will be promoted to the active view if possible.
+    pub fn disconnect(&mut self, node: &T) {
+        self.remove_from_active_view(node);
+        self.fill_active_view();
     }
 
+    /// Handles the given incoming message.
     pub fn handle_message(&mut self, message: Message<T>) {
         let sender = message.sender().clone();
         match message {
@@ -73,6 +118,9 @@ where
         self.disconnect_unless_active_view_node(sender);
     }
 
+    /// Starts shuffling the passive view of the instance.
+    ///
+    /// This method should be invoked periodically to keep the passive view fresh.
     pub fn shuffle_passive_view(&mut self) {
         if let Some(node) = self.select_random_from_active_view() {
             self.options.rng.shuffle(&mut self.active_view);
@@ -93,42 +141,25 @@ where
         }
     }
 
+    /// Promotes a node from the passive view to the active view if the latter is not full.
+    ///
+    /// This method should be invoked periodically to keep the active view full.
     pub fn fill_active_view(&mut self) {
-        if self.is_active_view_full() {
-            return;
-        }
-
-        let shortage = (self.options.max_active_view_size as usize) - self.active_view.len();
-        self.options.rng.shuffle(&mut self.passive_view);
-        for n in self.passive_view.iter().take(shortage) {
-            let high_priority = self.active_view.is_empty();
-            let message = Message::neighbor(&self.id, high_priority);
-            send(&mut self.actions, n.clone(), message);
+        if !self.is_active_view_full() {
+            if let Some(node) = self.select_random_from_passive_view() {
+                let high_priority = self.active_view.is_empty();
+                let message = Message::neighbor(&self.id, high_priority);
+                send(&mut self.actions, node, message);
+            }
         }
     }
 
+    /// Polls the next action that the node wants to execute.
+    ///
+    /// For running the HyParView node correctly,
+    /// this method must be called periodically and the resulting action must be executed by the caller.
     pub fn poll_action(&mut self) -> Option<Action<T>> {
         self.actions.pop_front()
-    }
-
-    pub fn id(&self) -> &T {
-        &self.id
-    }
-
-    pub fn active_view(&self) -> &[T] {
-        &self.active_view
-    }
-
-    pub fn passive_view(&self) -> &[T] {
-        &self.passive_view
-    }
-
-    pub fn options(&self) -> &NodeOptions<R> {
-        &self.options
-    }
-
-    pub fn options_mut(&mut self) -> &mut NodeOptions<R> {
-        &mut self.options
     }
 
     fn is_active_view_full(&self) -> bool {
