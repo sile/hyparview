@@ -236,8 +236,12 @@ where
         self.remove_random_from_active_view_if_full();
         self.remove_from_passive_view(&node);
         self.active_view.push(node.clone());
-        self.actions.push_back(Action::notify_up(node.clone()));
-        send(&mut self.actions, node, Message::neighbor(&self.id, true));
+        send(
+            &mut self.actions,
+            node.clone(),
+            Message::neighbor(&self.id, true),
+        );
+        self.actions.push_back(Action::notify_up(node));
     }
 
     fn add_to_passive_view(&mut self, node: T) {
@@ -257,8 +261,8 @@ where
 
     fn remove_from_active_view_by_index(&mut self, i: usize) {
         let node = self.active_view.swap_remove(i);
-        self.actions.push_back(Action::notify_down(node.clone()));
         self.actions.push_back(Action::disconnect(node.clone()));
+        self.actions.push_back(Action::notify_down(node.clone()));
         self.add_to_passive_view(node);
     }
 
