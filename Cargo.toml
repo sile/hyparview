@@ -13,4 +13,4 @@ travis-ci = {repository = "sile/hyparview"}
 codecov = {repository = "sile/hyparview"}
 
 [dependencies]
-rand = "0.4"
+rand = "0.5"
