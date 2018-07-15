@@ -1,12 +1,3 @@
-//! IPC(interprocess communication) related components.
-
-pub use self::message::{
-    ForwardJoinMessage, IpcMessage, JoinMessage, NeighborMesssage, ShuffleMessage,
-    ShuffleReplyMessage,
-};
-
-mod message;
-
 /// TTL of a message.
 ///
 /// It decreases by one each time the message is forwarded.
@@ -31,7 +22,7 @@ impl TimeToLive {
     /// # Examples
     ///
     /// ```
-    /// use hyparview::ipc::TimeToLive;
+    /// use hyparview::TimeToLive;
     ///
     /// let ttl = TimeToLive::new(10);
     /// assert!(!ttl.is_expired());

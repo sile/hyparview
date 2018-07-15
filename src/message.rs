@@ -1,6 +1,7 @@
-use ipc::TimeToLive;
+//! Messages used for inter-node communication.
+use TimeToLive;
 
-/// Messages used for inter-process communication.
+/// Messages used for inter-node communication.
 ///
 /// Unlike the [paper][HyParView], this does not contain `DISCONNECT` message.
 /// In this crate, disconnections are assumed to be handled at the out of the normal messages
@@ -8,7 +9,7 @@ use ipc::TimeToLive;
 ///
 /// [HyParView]: http://asc.di.fct.unl.pt/~jleitao/pdf/dsn07-leitao.pdf
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum IpcMessage<T> {
+pub enum ProtocolMessage<T> {
     /// `JOIN` message.
     Join(JoinMessage<T>),
 
@@ -24,27 +25,27 @@ pub enum IpcMessage<T> {
     /// `SHUFFLE_REPLY` message.
     ShuffleReply(ShuffleReplyMessage<T>),
 }
-impl<T> IpcMessage<T> {
+impl<T> ProtocolMessage<T> {
     /// Returns the node ID of the sender of the message.
     pub fn sender(&self) -> &T {
         match self {
-            IpcMessage::Join(m) => &m.sender,
-            IpcMessage::ForwardJoin(m) => &m.sender,
-            IpcMessage::Neighbor(m) => &m.sender,
-            IpcMessage::Shuffle(m) => &m.sender,
-            IpcMessage::ShuffleReply(m) => &m.sender,
+            ProtocolMessage::Join(m) => &m.sender,
+            ProtocolMessage::ForwardJoin(m) => &m.sender,
+            ProtocolMessage::Neighbor(m) => &m.sender,
+            ProtocolMessage::Shuffle(m) => &m.sender,
+            ProtocolMessage::ShuffleReply(m) => &m.sender,
         }
     }
 }
-impl<T: Clone> IpcMessage<T> {
+impl<T: Clone> ProtocolMessage<T> {
     pub(crate) fn join(sender: &T) -> Self {
-        IpcMessage::Join(JoinMessage {
+        ProtocolMessage::Join(JoinMessage {
             sender: sender.clone(),
         })
     }
 
     pub(crate) fn forward_join(sender: &T, new_node: T, ttl: TimeToLive) -> Self {
-        IpcMessage::ForwardJoin(ForwardJoinMessage {
+        ProtocolMessage::ForwardJoin(ForwardJoinMessage {
             sender: sender.clone(),
             new_node,
             ttl,
@@ -52,14 +53,14 @@ impl<T: Clone> IpcMessage<T> {
     }
 
     pub(crate) fn neighbor(sender: &T, high_priority: bool) -> Self {
-        IpcMessage::Neighbor(NeighborMesssage {
+        ProtocolMessage::Neighbor(NeighborMesssage {
             sender: sender.clone(),
             high_priority,
         })
     }
 
     pub(crate) fn shuffle(sender: &T, origin: T, nodes: Vec<T>, ttl: TimeToLive) -> Self {
-        IpcMessage::Shuffle(ShuffleMessage {
+        ProtocolMessage::Shuffle(ShuffleMessage {
             sender: sender.clone(),
             origin,
             nodes,
@@ -68,7 +69,7 @@ impl<T: Clone> IpcMessage<T> {
     }
 
     pub(crate) fn shuffle_reply(sender: &T, nodes: Vec<T>) -> Self {
-        IpcMessage::ShuffleReply(ShuffleReplyMessage {
+        ProtocolMessage::ShuffleReply(ShuffleReplyMessage {
             sender: sender.clone(),
             nodes,
         })

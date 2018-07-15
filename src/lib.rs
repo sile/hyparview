@@ -12,17 +12,19 @@ pub use action::Action;
 pub use event::Event;
 pub use node::Node;
 pub use node_options::NodeOptions;
+pub use ttl::TimeToLive;
 
 mod action;
 mod event;
 mod node;
 mod node_options;
+mod ttl;
 
-pub mod ipc;
+pub mod message;
 
 #[cfg(test)]
 mod test {
-    use super::ipc::Message;
+    use super::message::ProtocolMessage;
     use super::*;
 
     macro_rules! assert_some {
@@ -41,7 +43,7 @@ mod test {
         node.join("bar");
 
         let action = assert_some!(node.poll_action());
-        assert_eq!(action, Action::send("bar", Message::join(&"foo")));
+        assert_eq!(action, Action::send("bar", ProtocolMessage::join(&"foo")));
         assert!(node.poll_action().is_none());
     }
 }
