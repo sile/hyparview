@@ -17,7 +17,7 @@ pub enum ProtocolMessage<T> {
     ForwardJoin(ForwardJoinMessage<T>),
 
     /// `NEIGHBOR` message.
-    Neighbor(NeighborMesssage<T>),
+    Neighbor(NeighborMessage<T>),
 
     /// `SHUFFLE` message.
     Shuffle(ShuffleMessage<T>),
@@ -53,7 +53,7 @@ impl<T: Clone> ProtocolMessage<T> {
     }
 
     pub(crate) fn neighbor(sender: &T, high_priority: bool) -> Self {
-        ProtocolMessage::Neighbor(NeighborMesssage {
+        ProtocolMessage::Neighbor(NeighborMessage {
             sender: sender.clone(),
             high_priority,
         })
@@ -112,7 +112,7 @@ pub struct ForwardJoinMessage<T> {
 /// HyParView level connection has been established
 /// (in that case the value of `high_priority` always be set to `true`).
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct NeighborMesssage<T> {
+pub struct NeighborMessage<T> {
     /// The node ID of the message sender.
     pub sender: T,
 

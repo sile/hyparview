@@ -2,7 +2,7 @@ use rand::{Rng, ThreadRng};
 use std::collections::VecDeque;
 
 use message::{
-    ForwardJoinMessage, JoinMessage, NeighborMesssage, ProtocolMessage, ShuffleMessage,
+    ForwardJoinMessage, JoinMessage, NeighborMessage, ProtocolMessage, ShuffleMessage,
     ShuffleReplyMessage,
 };
 use {Action, NodeOptions, TimeToLive};
@@ -213,7 +213,7 @@ where
         }
     }
 
-    fn handle_neighbor(&mut self, m: NeighborMesssage<T>) {
+    fn handle_neighbor(&mut self, m: NeighborMessage<T>) {
         if m.high_priority || !self.is_active_view_full() {
             self.add_to_active_view(m.sender);
         }
