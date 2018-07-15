@@ -27,6 +27,7 @@ pub struct Node<T, R = ThreadRng> {
     active_view: Vec<T>,
     passive_view: Vec<T>,
     options: NodeOptions<R>,
+    is_joining: bool,
 }
 impl<T> Node<T, ThreadRng>
 where
@@ -50,6 +51,7 @@ where
             active_view: Vec::with_capacity(options.max_active_view_size as usize),
             passive_view: Vec::with_capacity(options.max_passive_view_size as usize),
             options,
+            is_joining: false,
         }
     }
 
@@ -83,6 +85,7 @@ where
     /// This method may be called multiple times for recovering cluster connectivity
     /// if an upper layer detects the cluster is splitted to sub-clusters.
     pub fn join(&mut self, contact_node_id: T) {
+        self.is_joining = true;
         send(
             &mut self.actions,
             contact_node_id,
@@ -101,8 +104,27 @@ where
         self.fill_active_view();
     }
 
+    /// Leaves the cluster.
+    ///
+    /// For disconnecting the neighbors correctly,
+    /// you need to handle the results of `poll_action` method until it returns `None`.
+    pub fn leave(&mut self) {
+        for node in self.active_view.clone() {
+            self.remove_from_active_view(&node);
+        }
+        self.is_joining = false;
+        self.active_view.clear();
+        self.passive_view.clear();
+    }
+
     /// Handles the given incoming message.
     pub fn handle_protocol_message(&mut self, message: ProtocolMessage<T>) {
+        if !self.is_joining {
+            self.actions
+                .push_back(Action::disconnect(message.sender().clone()));
+            return;
+        }
+
         let sender = message.sender().clone();
         match message {
             ProtocolMessage::Join(m) => self.handle_join(m),
