@@ -8,18 +8,21 @@
 #![warn(missing_docs)]
 extern crate rand;
 
-pub use message::Message;
-pub use misc::{Action, Event, TimeToLive};
+pub use action::Action;
+pub use event::Event;
 pub use node::Node;
 pub use node_options::NodeOptions;
 
-mod message;
-mod misc;
+mod action;
+mod event;
 mod node;
 mod node_options;
 
+pub mod ipc;
+
 #[cfg(test)]
 mod test {
+    use super::ipc::Message;
     use super::*;
 
     macro_rules! assert_some {

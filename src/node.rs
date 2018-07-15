@@ -1,7 +1,8 @@
 use rand::{Rng, ThreadRng};
 use std::collections::VecDeque;
 
-use {Action, Message, NodeOptions, TimeToLive};
+use ipc::{Message, TimeToLive};
+use {Action, NodeOptions};
 
 /// HyParView node.
 ///

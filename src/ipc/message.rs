@@ -1,4 +1,4 @@
-use TimeToLive;
+use ipc::TimeToLive;
 
 /// Messages used for inter-node communication.
 ///
