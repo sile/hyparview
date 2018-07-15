@@ -2,7 +2,7 @@ use rand::{Rng, ThreadRng};
 use std::collections::VecDeque;
 
 use ipc::{
-    ForwardJoinMessage, JoinMessage, Message, NeighborMesssage, ShuffleMessage,
+    ForwardJoinMessage, IpcMessage, JoinMessage, NeighborMesssage, ShuffleMessage,
     ShuffleReplyMessage, TimeToLive,
 };
 use {Action, NodeOptions};
@@ -83,7 +83,11 @@ where
     /// This method may be called multiple times for recovering cluster connectivity
     /// if an upper layer detects the cluster is splitted to sub-clusters.
     pub fn join(&mut self, contact_node_id: T) {
-        send(&mut self.actions, contact_node_id, Message::join(&self.id));
+        send(
+            &mut self.actions,
+            contact_node_id,
+            IpcMessage::join(&self.id),
+        );
     }
 
     /// Removes `node` from the active view of the instance.
@@ -98,14 +102,14 @@ where
     }
 
     /// Handles the given incoming message.
-    pub fn handle_message(&mut self, message: Message<T>) {
+    pub fn handle_message(&mut self, message: IpcMessage<T>) {
         let sender = message.sender().clone();
         match message {
-            Message::Join(m) => self.handle_join(m),
-            Message::ForwardJoin(m) => self.handle_forward_join(m),
-            Message::Neighbor(m) => self.handle_neighbor(m),
-            Message::Shuffle(m) => self.handle_shuffle(m),
-            Message::ShuffleReply(m) => self.handle_shuffle_reply(m),
+            IpcMessage::Join(m) => self.handle_join(m),
+            IpcMessage::ForwardJoin(m) => self.handle_forward_join(m),
+            IpcMessage::Neighbor(m) => self.handle_neighbor(m),
+            IpcMessage::Shuffle(m) => self.handle_shuffle(m),
+            IpcMessage::ShuffleReply(m) => self.handle_shuffle_reply(m),
         }
         self.disconnect_unless_active_view_node(sender);
     }
@@ -128,7 +132,7 @@ where
             nodes.extend(self.passive_view.iter().take(pv_size).cloned());
 
             let ttl = TimeToLive::new(self.options.active_random_walk_len);
-            let message = Message::shuffle(&self.id, self.id.clone(), nodes, ttl);
+            let message = IpcMessage::shuffle(&self.id, self.id.clone(), nodes, ttl);
             send(&mut self.actions, node, message);
         }
     }
@@ -140,7 +144,7 @@ where
         if !self.is_active_view_full() {
             if let Some(node) = self.select_random_from_passive_view() {
                 let high_priority = self.active_view.is_empty();
-                let message = Message::neighbor(&self.id, high_priority);
+                let message = IpcMessage::neighbor(&self.id, high_priority);
                 send(&mut self.actions, node, message);
             }
         }
@@ -167,7 +171,7 @@ where
         self.add_to_active_view(new_node.clone());
         let ttl = TimeToLive::new(self.options.active_random_walk_len);
         for n in self.active_view.iter().filter(|n| **n != new_node) {
-            let message = Message::forward_join(&self.id, new_node.clone(), ttl);
+            let message = IpcMessage::forward_join(&self.id, new_node.clone(), ttl);
             send(&mut self.actions, n.clone(), message);
         }
     }
@@ -180,7 +184,7 @@ where
                 self.add_to_passive_view(m.new_node.clone());
             }
             if let Some(next) = self.select_forwarding_destination(&[&m.sender]) {
-                let message = Message::forward_join(&self.id, m.new_node, m.ttl.decrement());
+                let message = IpcMessage::forward_join(&self.id, m.new_node, m.ttl.decrement());
                 send(&mut self.actions, next, message);
             }
         }
@@ -200,13 +204,13 @@ where
                 .take(m.nodes.len())
                 .cloned()
                 .collect();
-            let message = Message::shuffle_reply(&self.id, reply_nodes);
+            let message = IpcMessage::shuffle_reply(&self.id, reply_nodes);
             send(&mut self.actions, m.origin.clone(), message);
             self.add_shuffled_nodes_to_passive_view(m.nodes);
         } else if let Some(destination) =
             self.select_forwarding_destination(&[&m.origin, &m.sender])
         {
-            let message = Message::shuffle(&self.id, m.origin, m.nodes, m.ttl.decrement());
+            let message = IpcMessage::shuffle(&self.id, m.origin, m.nodes, m.ttl.decrement());
             send(&mut self.actions, destination, message);
         }
     }
@@ -231,7 +235,7 @@ where
         send(
             &mut self.actions,
             node.clone(),
-            Message::neighbor(&self.id, true),
+            IpcMessage::neighbor(&self.id, true),
         );
         self.actions.push_back(Action::notify_up(node));
     }
@@ -325,6 +329,6 @@ where
     }
 }
 
-fn send<T>(actions: &mut VecDeque<Action<T>>, destination: T, message: Message<T>) {
+fn send<T>(actions: &mut VecDeque<Action<T>>, destination: T, message: IpcMessage<T>) {
     actions.push_back(Action::send(destination, message));
 }

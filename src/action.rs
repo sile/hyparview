@@ -1,4 +1,4 @@
-use ipc::Message;
+use ipc::IpcMessage;
 use Event;
 
 /// Actions instructed by HyParView [Node](./struct.Node.html).
@@ -21,7 +21,7 @@ pub enum Action<T> {
         destination: T,
 
         /// An outgoing message.
-        message: Message<T>,
+        message: IpcMessage<T>,
     },
 
     /// Close a connection.
@@ -43,7 +43,7 @@ pub enum Action<T> {
     },
 }
 impl<T> Action<T> {
-    pub(crate) fn send(destination: T, message: Message<T>) -> Self {
+    pub(crate) fn send(destination: T, message: IpcMessage<T>) -> Self {
         Action::Send {
             destination,
             message,

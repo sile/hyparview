@@ -1,7 +1,8 @@
 //! IPC(interprocess communication) related components.
 
 pub use self::message::{
-    ForwardJoinMessage, JoinMessage, Message, NeighborMesssage, ShuffleMessage, ShuffleReplyMessage,
+    ForwardJoinMessage, IpcMessage, JoinMessage, NeighborMesssage, ShuffleMessage,
+    ShuffleReplyMessage,
 };
 
 mod message;

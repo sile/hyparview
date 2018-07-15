@@ -8,7 +8,7 @@ use ipc::TimeToLive;
 ///
 /// [HyParView]: http://asc.di.fct.unl.pt/~jleitao/pdf/dsn07-leitao.pdf
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Message<T> {
+pub enum IpcMessage<T> {
     /// `JOIN` message.
     Join(JoinMessage<T>),
 
@@ -24,27 +24,27 @@ pub enum Message<T> {
     /// `SHUFFLE_REPLY` message.
     ShuffleReply(ShuffleReplyMessage<T>),
 }
-impl<T> Message<T> {
+impl<T> IpcMessage<T> {
     /// Returns the node ID of the sender of the message.
     pub fn sender(&self) -> &T {
         match self {
-            Message::Join(m) => &m.sender,
-            Message::ForwardJoin(m) => &m.sender,
-            Message::Neighbor(m) => &m.sender,
-            Message::Shuffle(m) => &m.sender,
-            Message::ShuffleReply(m) => &m.sender,
+            IpcMessage::Join(m) => &m.sender,
+            IpcMessage::ForwardJoin(m) => &m.sender,
+            IpcMessage::Neighbor(m) => &m.sender,
+            IpcMessage::Shuffle(m) => &m.sender,
+            IpcMessage::ShuffleReply(m) => &m.sender,
         }
     }
 }
-impl<T: Clone> Message<T> {
+impl<T: Clone> IpcMessage<T> {
     pub(crate) fn join(sender: &T) -> Self {
-        Message::Join(JoinMessage {
+        IpcMessage::Join(JoinMessage {
             sender: sender.clone(),
         })
     }
 
     pub(crate) fn forward_join(sender: &T, new_node: T, ttl: TimeToLive) -> Self {
-        Message::ForwardJoin(ForwardJoinMessage {
+        IpcMessage::ForwardJoin(ForwardJoinMessage {
             sender: sender.clone(),
             new_node,
             ttl,
@@ -52,14 +52,14 @@ impl<T: Clone> Message<T> {
     }
 
     pub(crate) fn neighbor(sender: &T, high_priority: bool) -> Self {
-        Message::Neighbor(NeighborMesssage {
+        IpcMessage::Neighbor(NeighborMesssage {
             sender: sender.clone(),
             high_priority,
         })
     }
 
     pub(crate) fn shuffle(sender: &T, origin: T, nodes: Vec<T>, ttl: TimeToLive) -> Self {
-        Message::Shuffle(ShuffleMessage {
+        IpcMessage::Shuffle(ShuffleMessage {
             sender: sender.clone(),
             origin,
             nodes,
@@ -68,7 +68,7 @@ impl<T: Clone> Message<T> {
     }
 
     pub(crate) fn shuffle_reply(sender: &T, nodes: Vec<T>) -> Self {
-        Message::ShuffleReply(ShuffleReplyMessage {
+        IpcMessage::ShuffleReply(ShuffleReplyMessage {
             sender: sender.clone(),
             nodes,
         })
