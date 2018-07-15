@@ -1,7 +1,10 @@
 use rand::{Rng, ThreadRng};
 use std::collections::VecDeque;
 
-use ipc::{Message, TimeToLive};
+use ipc::{
+    ForwardJoinMessage, JoinMessage, Message, NeighborMesssage, ShuffleMessage,
+    ShuffleReplyMessage, TimeToLive,
+};
 use {Action, NodeOptions};
 
 /// HyParView node.
@@ -98,23 +101,11 @@ where
     pub fn handle_message(&mut self, message: Message<T>) {
         let sender = message.sender().clone();
         match message {
-            Message::Join { sender } => self.handle_join(sender),
-            Message::ForwardJoin {
-                sender,
-                new_node,
-                ttl,
-            } => self.handle_forward_join(sender, new_node, ttl),
-            Message::Neighbor {
-                sender,
-                high_priority,
-            } => self.handle_neighbor(sender, high_priority),
-            Message::Shuffle {
-                sender,
-                origin,
-                nodes,
-                ttl,
-            } => self.handle_shuffle(sender, origin, nodes, ttl),
-            Message::ShuffleReply { nodes, .. } => self.handle_shuffle_reply(nodes),
+            Message::Join(m) => self.handle_join(m),
+            Message::ForwardJoin(m) => self.handle_forward_join(m),
+            Message::Neighbor(m) => self.handle_neighbor(m),
+            Message::Shuffle(m) => self.handle_shuffle(m),
+            Message::ShuffleReply(m) => self.handle_shuffle_reply(m),
         }
         self.disconnect_unless_active_view_node(sender);
     }
@@ -171,8 +162,8 @@ where
         self.passive_view.len() >= self.options.max_passive_view_size as usize
     }
 
-    #[cfg_attr(feature = "cargo-clippy", allow(needless_pass_by_value))]
-    fn handle_join(&mut self, new_node: T) {
+    fn handle_join(&mut self, m: JoinMessage<T>) {
+        let new_node = m.sender;
         self.add_to_active_view(new_node.clone());
         let ttl = TimeToLive::new(self.options.active_random_walk_len);
         for n in self.active_view.iter().filter(|n| **n != new_node) {
@@ -181,47 +172,47 @@ where
         }
     }
 
-    #[cfg_attr(feature = "cargo-clippy", allow(needless_pass_by_value))]
-    fn handle_forward_join(&mut self, sender: T, new_node: T, ttl: TimeToLive) {
-        if ttl.is_expired() || self.active_view.is_empty() {
-            self.add_to_active_view(new_node);
+    fn handle_forward_join(&mut self, m: ForwardJoinMessage<T>) {
+        if m.ttl.is_expired() || self.active_view.is_empty() {
+            self.add_to_active_view(m.new_node);
         } else {
-            if ttl.as_u8() == self.options.passive_random_walk_len {
-                self.add_to_passive_view(new_node.clone());
+            if m.ttl.as_u8() == self.options.passive_random_walk_len {
+                self.add_to_passive_view(m.new_node.clone());
             }
-            if let Some(next) = self.select_forwarding_destination(&[&sender]) {
-                let message = Message::forward_join(&self.id, new_node, ttl.decrement());
+            if let Some(next) = self.select_forwarding_destination(&[&m.sender]) {
+                let message = Message::forward_join(&self.id, m.new_node, m.ttl.decrement());
                 send(&mut self.actions, next, message);
             }
         }
     }
 
-    fn handle_neighbor(&mut self, sender: T, high_priority: bool) {
-        if high_priority || !self.is_active_view_full() {
-            self.add_to_active_view(sender);
+    fn handle_neighbor(&mut self, m: NeighborMesssage<T>) {
+        if m.high_priority || !self.is_active_view_full() {
+            self.add_to_active_view(m.sender);
         }
     }
 
-    #[cfg_attr(feature = "cargo-clippy", allow(needless_pass_by_value))]
-    fn handle_shuffle(&mut self, sender: T, origin: T, nodes: Vec<T>, ttl: TimeToLive) {
-        if ttl.is_expired() {
+    fn handle_shuffle(&mut self, m: ShuffleMessage<T>) {
+        if m.ttl.is_expired() {
             self.options.rng.shuffle(&mut self.passive_view);
             let reply_nodes = self.passive_view
                 .iter()
-                .take(nodes.len())
+                .take(m.nodes.len())
                 .cloned()
                 .collect();
             let message = Message::shuffle_reply(&self.id, reply_nodes);
-            send(&mut self.actions, origin.clone(), message);
-            self.add_shuffled_nodes_to_passive_view(nodes);
-        } else if let Some(destination) = self.select_forwarding_destination(&[&origin, &sender]) {
-            let message = Message::shuffle(&self.id, origin, nodes, ttl.decrement());
+            send(&mut self.actions, m.origin.clone(), message);
+            self.add_shuffled_nodes_to_passive_view(m.nodes);
+        } else if let Some(destination) =
+            self.select_forwarding_destination(&[&m.origin, &m.sender])
+        {
+            let message = Message::shuffle(&self.id, m.origin, m.nodes, m.ttl.decrement());
             send(&mut self.actions, destination, message);
         }
     }
 
-    fn handle_shuffle_reply(&mut self, nodes: Vec<T>) {
-        self.add_shuffled_nodes_to_passive_view(nodes);
+    fn handle_shuffle_reply(&mut self, m: ShuffleReplyMessage<T>) {
+        self.add_shuffled_nodes_to_passive_view(m.nodes);
     }
 
     fn add_shuffled_nodes_to_passive_view(&mut self, nodes: Vec<T>) {

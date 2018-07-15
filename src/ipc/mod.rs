@@ -1,6 +1,8 @@
 //! IPC(interprocess communication) related components.
 
-pub use self::message::Message;
+pub use self::message::{
+    ForwardJoinMessage, JoinMessage, Message, NeighborMesssage, ShuffleMessage, ShuffleReplyMessage,
+};
 
 mod message;
 
@@ -36,7 +38,7 @@ impl TimeToLive {
     /// let ttl = TimeToLive::new(0);
     /// assert!(ttl.is_expired());
     /// ```
-    pub fn is_expired(&self) -> bool {
+    pub fn is_expired(self) -> bool {
         self.0 == 0
     }
 
