@@ -2,8 +2,8 @@ use rand::{Rng, ThreadRng};
 use std::collections::VecDeque;
 
 use message::{
-    ForwardJoinMessage, JoinMessage, NeighborMessage, ProtocolMessage, ShuffleMessage,
-    ShuffleReplyMessage,
+    DisconnectMessage, ForwardJoinMessage, JoinMessage, NeighborMessage, ProtocolMessage,
+    ShuffleMessage, ShuffleReplyMessage,
 };
 use {Action, NodeOptions, TimeToLive};
 
@@ -99,9 +99,14 @@ where
     ///
     /// If the active view is not full, a node randomly selected from the passive view
     /// will be promoted to the active view if possible.
+    ///
+    /// This is equivalent to the following code:
+    /// ```norun
+    /// let message = ProtocolMessage::Disconnect(DisconnectMessage{sender: node.clone()});
+    /// self.handle_protocol_message(message);
+    /// ```
     pub fn disconnect(&mut self, node: &T) {
-        self.remove_from_active_view(node);
-        self.fill_active_view();
+        self.handle_protocol_message(ProtocolMessage::disconnect(node));
     }
 
     /// Leaves the cluster.
@@ -120,6 +125,14 @@ where
     /// Handles the given incoming message.
     pub fn handle_protocol_message(&mut self, message: ProtocolMessage<T>) {
         if self.is_absentee {
+            if let ProtocolMessage::Disconnect(_) = message {
+            } else {
+                send(
+                    &mut self.actions,
+                    message.sender().clone(),
+                    ProtocolMessage::disconnect(&self.id),
+                );
+            }
             self.actions
                 .push_back(Action::disconnect(message.sender().clone()));
             return;
@@ -132,6 +145,10 @@ where
             ProtocolMessage::Neighbor(m) => self.handle_neighbor(m),
             ProtocolMessage::Shuffle(m) => self.handle_shuffle(m),
             ProtocolMessage::ShuffleReply(m) => self.handle_shuffle_reply(m),
+            ProtocolMessage::Disconnect(m) => {
+                self.handle_disconnect(m);
+                return;
+            }
         }
         self.disconnect_unless_active_view_node(sender);
     }
@@ -178,7 +195,7 @@ where
     /// This method should be invoked periodically to keep the symmetry property of the active view.
     pub fn sync_active_view(&mut self) {
         for node in self.active_view.clone() {
-            let message = ProtocolMessage::neighbor(&self.id, true);
+            let message = ProtocolMessage::neighbor(&self.id, false);
             send(&mut self.actions, node, message);
         }
     }
@@ -255,6 +272,11 @@ where
         self.add_shuffled_nodes_to_passive_view(m.nodes);
     }
 
+    fn handle_disconnect(&mut self, m: DisconnectMessage<T>) {
+        self.remove_from_active_view(&m.sender);
+        self.fill_active_view();
+    }
+
     fn add_shuffled_nodes_to_passive_view(&mut self, nodes: Vec<T>) {
         for n in nodes {
             self.add_to_passive_view(n);
@@ -293,6 +315,11 @@ where
 
     fn remove_from_active_view_by_index(&mut self, i: usize) {
         let node = self.active_view.swap_remove(i);
+        send(
+            &mut self.actions,
+            node.clone(),
+            ProtocolMessage::disconnect(&self.id),
+        );
         self.actions.push_back(Action::disconnect(node.clone()));
         self.actions.push_back(Action::notify_down(node.clone()));
         self.add_to_passive_view(node);
@@ -321,6 +348,11 @@ where
 
     fn disconnect_unless_active_view_node(&mut self, node: T) {
         if !self.active_view.contains(&node) {
+            send(
+                &mut self.actions,
+                node.clone(),
+                ProtocolMessage::disconnect(&self.id),
+            );
             self.actions.push_back(Action::disconnect(node));
         }
     }

@@ -3,10 +3,6 @@ use TimeToLive;
 
 /// Messages used for inter-node communication.
 ///
-/// Unlike the [paper][HyParView], this does not contain `DISCONNECT` message.
-/// In this crate, disconnections are assumed to be handled at the out of the normal messages
-/// (e.g., Disconnections at the TCP level may be used for that purpose).
-///
 /// [HyParView]: http://asc.di.fct.unl.pt/~jleitao/pdf/dsn07-leitao.pdf
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ProtocolMessage<T> {
@@ -24,6 +20,9 @@ pub enum ProtocolMessage<T> {
 
     /// `SHUFFLE_REPLY` message.
     ShuffleReply(ShuffleReplyMessage<T>),
+
+    /// `DISCONNECT` messsage.
+    Disconnect(DisconnectMessage<T>),
 }
 impl<T> ProtocolMessage<T> {
     /// Returns the node ID of the sender of the message.
@@ -34,6 +33,7 @@ impl<T> ProtocolMessage<T> {
             ProtocolMessage::Neighbor(m) => &m.sender,
             ProtocolMessage::Shuffle(m) => &m.sender,
             ProtocolMessage::ShuffleReply(m) => &m.sender,
+            ProtocolMessage::Disconnect(m) => &m.sender,
         }
     }
 }
@@ -72,6 +72,12 @@ impl<T: Clone> ProtocolMessage<T> {
         ProtocolMessage::ShuffleReply(ShuffleReplyMessage {
             sender: sender.clone(),
             nodes,
+        })
+    }
+
+    pub(crate) fn disconnect(sender: &T) -> Self {
+        ProtocolMessage::Disconnect(DisconnectMessage {
+            sender: sender.clone(),
         })
     }
 }
@@ -146,4 +152,13 @@ pub struct ShuffleReplyMessage<T> {
 
     /// The nodes selected by `sender` as the reply of the associated `Shuffle` message.
     pub nodes: Vec<T>,
+}
+
+/// `DISCONNECT` message.
+///
+/// This is sent by a node for removing the sender from the active view of the receiver.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DisconnectMessage<T> {
+    /// The node ID of the message sender.
+    pub sender: T,
 }
