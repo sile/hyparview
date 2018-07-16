@@ -1,6 +1,6 @@
 [package]
 name = "hyparview"
-version = "0.0.5"
+version = "0.0.6"
 authors = ["Takeru Ohta <phjgt308@gmail.com>"]
 description = "A Rust implementation of HyParView algorithm"
 homepage = "https://github.com/sile/hyparview"
