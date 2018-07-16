@@ -243,8 +243,9 @@ where
     }
 
     fn handle_disconnect(&mut self, m: DisconnectMessage<T>) {
-        self.remove_from_active_view(&m.sender);
-        self.fill_active_view();
+        if self.remove_from_active_view(&m.sender) {
+            self.fill_active_view();
+        }
     }
 
     fn add_shuffled_nodes_to_passive_view(&mut self, nodes: Vec<T>) {
@@ -276,10 +277,13 @@ where
         self.passive_view.push(node);
     }
 
-    fn remove_from_active_view(&mut self, node: &T) {
+    fn remove_from_active_view(&mut self, node: &T) -> bool {
         let index = self.active_view.iter().position(|n| n == node);
         if let Some(i) = index {
             self.remove_from_active_view_by_index(i);
+            true
+        } else {
+            false
         }
     }
 
