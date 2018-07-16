@@ -172,6 +172,17 @@ where
         }
     }
 
+    /// Sends `NEIGHBOR` message to the members of the active view for
+    /// maintaining the symmetry property of the view.
+    ///
+    /// This method should be invoked periodically to keep the symmetry property of the active view.
+    pub fn sync_active_view(&mut self) {
+        for node in self.active_view.clone() {
+            let message = ProtocolMessage::neighbor(&self.id, true);
+            send(&mut self.actions, node, message);
+        }
+    }
+
     /// Polls the next action that the node wants to execute.
     ///
     /// For running the HyParView node correctly,
@@ -209,6 +220,8 @@ where
                 let message =
                     ProtocolMessage::forward_join(&self.id, m.new_node, m.ttl.decrement());
                 send(&mut self.actions, next, message);
+            } else {
+                self.add_to_active_view(m.new_node);
             }
         }
     }
