@@ -81,6 +81,36 @@ impl<T: Clone> ProtocolMessage<T> {
         })
     }
 }
+impl<T> From<JoinMessage<T>> for ProtocolMessage<T> {
+    fn from(f: JoinMessage<T>) -> Self {
+        ProtocolMessage::Join(f)
+    }
+}
+impl<T> From<ForwardJoinMessage<T>> for ProtocolMessage<T> {
+    fn from(f: ForwardJoinMessage<T>) -> Self {
+        ProtocolMessage::ForwardJoin(f)
+    }
+}
+impl<T> From<NeighborMessage<T>> for ProtocolMessage<T> {
+    fn from(f: NeighborMessage<T>) -> Self {
+        ProtocolMessage::Neighbor(f)
+    }
+}
+impl<T> From<ShuffleMessage<T>> for ProtocolMessage<T> {
+    fn from(f: ShuffleMessage<T>) -> Self {
+        ProtocolMessage::Shuffle(f)
+    }
+}
+impl<T> From<ShuffleReplyMessage<T>> for ProtocolMessage<T> {
+    fn from(f: ShuffleReplyMessage<T>) -> Self {
+        ProtocolMessage::ShuffleReply(f)
+    }
+}
+impl<T> From<DisconnectMessage<T>> for ProtocolMessage<T> {
+    fn from(f: DisconnectMessage<T>) -> Self {
+        ProtocolMessage::Disconnect(f)
+    }
+}
 
 /// `JOIN` message.
 ///
