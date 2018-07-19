@@ -38,10 +38,10 @@ pub struct NodeOptions<R> {
     /// [paper]: http://asc.di.fct.unl.pt/~jleitao/pdf/dsn07-leitao.pdf
     pub passive_random_walk_len: u8,
 }
-impl NodeOptions<ThreadRng> {
-    /// Makes a new `NodeOptions` instance with the default settings.
-    pub fn new() -> Self {
-        Self::default()
+impl<R: Rng> NodeOptions<R> {
+    /// Makes a new `NodeOptions` instance with the given random number generator.
+    pub fn new(rng: R) -> Self {
+        NodeOptions::default().set_rng(rng)
     }
 }
 impl<R: Rng> NodeOptions<R> {
