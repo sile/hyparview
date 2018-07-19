@@ -1,13 +1,6 @@
-use rand::{self, Rng, ThreadRng};
-
 /// Options for HyParView [Node](./struct.Node.html).
 #[derive(Debug, Clone)]
-pub struct NodeOptions<R> {
-    /// Random number generator.
-    ///
-    /// The default random number generator is `ThreadRng`.
-    pub rng: R,
-
+pub struct NodeOptions {
     /// Maximum number of nodes in the active view.
     pub max_active_view_size: u8,
 
@@ -38,13 +31,7 @@ pub struct NodeOptions<R> {
     /// [paper]: http://asc.di.fct.unl.pt/~jleitao/pdf/dsn07-leitao.pdf
     pub passive_random_walk_len: u8,
 }
-impl<R: Rng> NodeOptions<R> {
-    /// Makes a new `NodeOptions` instance with the given random number generator.
-    pub fn new(rng: R) -> Self {
-        NodeOptions::default().set_rng(rng)
-    }
-}
-impl<R: Rng> NodeOptions<R> {
+impl NodeOptions {
     /// The default value of `max_active_view_size` field.
     pub const DEFAULT_MAX_ACTIVE_VIEW_SIZE: u8 = 4;
 
@@ -62,24 +49,10 @@ impl<R: Rng> NodeOptions<R> {
 
     /// The default value of `passive_random_walk_len` field.
     pub const DEFAULT_PASSIVE_RANDOM_WALK_LEN: u8 = 2;
-
-    /// Sets the random number generator to `rng`.
-    pub fn set_rng<S: Rng>(self, rng: S) -> NodeOptions<S> {
-        NodeOptions {
-            rng,
-            max_active_view_size: self.max_active_view_size,
-            max_passive_view_size: self.max_passive_view_size,
-            shuffle_active_view_size: self.shuffle_active_view_size,
-            shuffle_passive_view_size: self.shuffle_passive_view_size,
-            active_random_walk_len: self.active_random_walk_len,
-            passive_random_walk_len: self.passive_random_walk_len,
-        }
-    }
 }
-impl Default for NodeOptions<ThreadRng> {
+impl Default for NodeOptions {
     fn default() -> Self {
         NodeOptions {
-            rng: rand::thread_rng(),
             max_active_view_size: Self::DEFAULT_MAX_ACTIVE_VIEW_SIZE,
             max_passive_view_size: Self::DEFAULT_MAX_PASSIVE_VIEW_SIZE,
             shuffle_active_view_size: Self::DEFAULT_SHUFFLE_ACTIVE_VIEW_SIZE,

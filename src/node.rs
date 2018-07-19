@@ -26,29 +26,27 @@ pub struct Node<T, R = ThreadRng> {
     actions: VecDeque<Action<T>>,
     active_view: Vec<T>,
     passive_view: Vec<T>,
-    options: NodeOptions<R>,
-}
-impl<T> Node<T, ThreadRng>
-where
-    T: Clone + Eq,
-{
-    /// Makes a new `Node` instance with the default options.
-    pub fn new(node_id: T) -> Self {
-        Node::with_options(node_id, NodeOptions::default())
-    }
+    rng: R,
+    options: NodeOptions,
 }
 impl<T, R> Node<T, R>
 where
     T: Clone + Eq,
     R: Rng,
 {
+    /// Makes a new `Node` instance with the default options.
+    pub fn new(node_id: T, rng: R) -> Self {
+        Node::with_options(node_id, rng, NodeOptions::default())
+    }
+
     /// Makes a new `Node` instance with the given options.
-    pub fn with_options(node_id: T, options: NodeOptions<R>) -> Self {
+    pub fn with_options(node_id: T, rng: R, options: NodeOptions) -> Self {
         Node {
             id: node_id,
             actions: VecDeque::new(),
             active_view: Vec::with_capacity(options.max_active_view_size as usize),
             passive_view: Vec::with_capacity(options.max_passive_view_size as usize),
+            rng,
             options,
         }
     }
@@ -69,12 +67,12 @@ where
     }
 
     /// Returns a reference to the options of the instance.
-    pub fn options(&self) -> &NodeOptions<R> {
+    pub fn options(&self) -> &NodeOptions {
         &self.options
     }
 
     /// Returns a mutable reference to the options of the instance.
-    pub fn options_mut(&mut self) -> &mut NodeOptions<R> {
+    pub fn options_mut(&mut self) -> &mut NodeOptions {
         &mut self.options
     }
 
@@ -128,8 +126,8 @@ where
     /// This method should be invoked periodically to keep the passive view fresh.
     pub fn shuffle_passive_view(&mut self) {
         if let Some(node) = self.select_random_from_active_view() {
-            self.options.rng.shuffle(&mut self.active_view);
-            self.options.rng.shuffle(&mut self.passive_view);
+            self.rng.shuffle(&mut self.active_view);
+            self.rng.shuffle(&mut self.passive_view);
 
             let av_size = self.options.shuffle_active_view_size as usize;
             let pv_size = self.options.shuffle_passive_view_size as usize;
@@ -221,7 +219,7 @@ where
 
     fn handle_shuffle(&mut self, m: ShuffleMessage<T>) {
         if m.ttl.is_expired() {
-            self.options.rng.shuffle(&mut self.passive_view);
+            self.rng.shuffle(&mut self.passive_view);
             let reply_nodes = self.passive_view
                 .iter()
                 .take(m.nodes.len())
@@ -301,7 +299,7 @@ where
 
     fn remove_random_from_active_view_if_full(&mut self) {
         if self.is_active_view_full() {
-            let i = self.options.rng.gen_range(0, self.active_view.len());
+            let i = self.rng.gen_range(0, self.active_view.len());
             self.remove_from_active_view_by_index(i);
         }
     }
@@ -315,7 +313,7 @@ where
 
     fn remove_random_from_passive_view_if_full(&mut self) {
         if self.is_passive_view_full() {
-            let i = self.options.rng.gen_range(0, self.passive_view.len());
+            let i = self.rng.gen_range(0, self.passive_view.len());
             self.passive_view.swap_remove(i);
         }
     }
@@ -347,7 +345,7 @@ where
         if tail == 0 {
             None
         } else {
-            let i = self.options.rng.gen_range(0, tail);
+            let i = self.rng.gen_range(0, tail);
             Some(self.active_view[i].clone())
         }
     }
@@ -356,7 +354,7 @@ where
         if self.active_view.is_empty() {
             None
         } else {
-            let i = self.options.rng.gen_range(0, self.active_view.len());
+            let i = self.rng.gen_range(0, self.active_view.len());
             Some(self.active_view[i].clone())
         }
     }
@@ -365,7 +363,7 @@ where
         if self.passive_view.is_empty() {
             None
         } else {
-            let i = self.options.rng.gen_range(0, self.passive_view.len());
+            let i = self.rng.gen_range(0, self.passive_view.len());
             Some(self.passive_view[i].clone())
         }
     }

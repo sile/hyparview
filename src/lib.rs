@@ -24,6 +24,8 @@ pub mod message;
 
 #[cfg(test)]
 mod test {
+    use rand;
+
     use super::message::ProtocolMessage;
     use super::*;
 
@@ -39,7 +41,7 @@ mod test {
 
     #[test]
     fn single_join_works() {
-        let mut node = Node::new("foo");
+        let mut node = Node::new("foo", rand::thread_rng());
         node.join("bar");
 
         let action = assert_some!(node.poll_action());
