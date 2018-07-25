@@ -114,7 +114,7 @@ where
             ProtocolMessage::Shuffle(m) => self.handle_shuffle(m),
             ProtocolMessage::ShuffleReply(m) => self.handle_shuffle_reply(m),
             ProtocolMessage::Disconnect(m) => {
-                self.handle_disconnect(m);
+                self.handle_disconnect(&m);
                 return;
             }
         }
@@ -240,7 +240,7 @@ where
         self.add_shuffled_nodes_to_passive_view(m.nodes);
     }
 
-    fn handle_disconnect(&mut self, m: DisconnectMessage<T>) {
+    fn handle_disconnect(&mut self, m: &DisconnectMessage<T>) {
         if self.remove_from_active_view(&m.sender) {
             self.fill_active_view();
         }
