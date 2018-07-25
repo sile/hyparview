@@ -1,4 +1,5 @@
 use rand::{Rng, ThreadRng};
+use std::cmp;
 use std::collections::VecDeque;
 
 use message::{
@@ -186,7 +187,7 @@ where
 
     fn handle_join(&mut self, m: JoinMessage<T>) {
         let new_node = m.sender;
-        self.add_to_active_view(new_node.clone());
+        self.add_to_active_view(new_node.clone(), true);
         let ttl = TimeToLive::new(self.options.active_random_walk_len);
         for n in self.active_view.iter().filter(|n| **n != new_node) {
             let message = ProtocolMessage::forward_join(&self.id, new_node.clone(), ttl);
@@ -196,7 +197,7 @@ where
 
     fn handle_forward_join(&mut self, m: ForwardJoinMessage<T>) {
         if m.ttl.is_expired() || self.active_view.is_empty() {
-            self.add_to_active_view(m.new_node);
+            self.add_to_active_view(m.new_node, true);
         } else {
             if m.ttl.as_u8() == self.options.passive_random_walk_len {
                 self.add_to_passive_view(m.new_node.clone());
@@ -206,25 +207,22 @@ where
                     ProtocolMessage::forward_join(&self.id, m.new_node, m.ttl.decrement());
                 send(&mut self.actions, next, message);
             } else {
-                self.add_to_active_view(m.new_node);
+                self.add_to_active_view(m.new_node, true);
             }
         }
     }
 
     fn handle_neighbor(&mut self, m: NeighborMessage<T>) {
         if m.high_priority || !self.is_active_view_full() {
-            self.add_to_active_view(m.sender);
+            self.add_to_active_view(m.sender, false);
         }
     }
 
     fn handle_shuffle(&mut self, m: ShuffleMessage<T>) {
         if m.ttl.is_expired() {
             self.rng.shuffle(&mut self.passive_view);
-            let reply_nodes = self.passive_view
-                .iter()
-                .take(m.nodes.len())
-                .cloned()
-                .collect();
+            let offset = cmp::max(self.passive_view.len(), m.nodes.len()) - m.nodes.len();
+            let reply_nodes = self.passive_view.drain(offset..).collect();
             let message = ProtocolMessage::shuffle_reply(&self.id, reply_nodes);
             send(&mut self.actions, m.origin.clone(), message);
             self.add_shuffled_nodes_to_passive_view(m.nodes);
@@ -252,8 +250,8 @@ where
         }
     }
 
-    fn add_to_active_view(&mut self, node: T) {
-        if self.active_view.contains(&node) {
+    fn add_to_active_view(&mut self, node: T, high_priority: bool) {
+        if self.active_view.contains(&node) || node == self.id {
             return;
         }
         self.remove_random_from_active_view_if_full();
@@ -262,13 +260,14 @@ where
         send(
             &mut self.actions,
             node.clone(),
-            ProtocolMessage::neighbor(&self.id, true),
+            ProtocolMessage::neighbor(&self.id, high_priority),
         );
         self.actions.push_back(Action::notify_up(node));
     }
 
     fn add_to_passive_view(&mut self, node: T) {
-        if self.active_view.contains(&node) || self.passive_view.contains(&node) {
+        if self.active_view.contains(&node) || self.passive_view.contains(&node) || node == self.id
+        {
             return;
         }
         self.remove_random_from_passive_view_if_full();
@@ -319,7 +318,7 @@ where
     }
 
     fn disconnect_unless_active_view_node(&mut self, node: T) {
-        if !self.active_view.contains(&node) {
+        if !self.active_view.contains(&node) && self.id != node {
             send(
                 &mut self.actions,
                 node.clone(),
