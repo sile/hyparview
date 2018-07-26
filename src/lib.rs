@@ -75,10 +75,10 @@ mod tests {
             assert!(node.passive_view().is_empty());
         }
 
-        // leave
+        // leave (alive=true)
         nodes.pop();
-        nodes[0].disconnect(&"baz");
-        nodes[1].disconnect(&"baz");
+        nodes[0].disconnect(&"baz", true);
+        nodes[1].disconnect(&"baz", true);
         execute_actions(&mut nodes);
 
         for node in &nodes {
@@ -101,6 +101,20 @@ mod tests {
             assert_eq!(
                 to_set(node.active_view()),
                 to_set(["foo", "bar", "baz"].iter().filter(|n| *n != node.id()))
+            );
+            assert!(node.passive_view().is_empty());
+        }
+
+        // leave (alive=false)
+        nodes.pop();
+        nodes[0].disconnect(&"baz", false);
+        nodes[1].disconnect(&"baz", false);
+        execute_actions(&mut nodes);
+
+        for node in &nodes {
+            assert_eq!(
+                to_set(node.active_view()),
+                to_set(["foo", "bar"].iter().filter(|n| *n != node.id()))
             );
             assert!(node.passive_view().is_empty());
         }

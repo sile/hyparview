@@ -1,5 +1,4 @@
 use rand::{Rng, ThreadRng};
-use std::cmp;
 use std::collections::VecDeque;
 
 use message::{
@@ -98,11 +97,11 @@ where
     ///
     /// This is equivalent to the following code:
     /// ```norun
-    /// let message = ProtocolMessage::Disconnect(DisconnectMessage{sender: node.clone()});
+    /// let message = ProtocolMessage::Disconnect(DisconnectMessage{sender: node.clone(), alive});
     /// self.handle_protocol_message(message);
     /// ```
-    pub fn disconnect(&mut self, node: &T) {
-        self.handle_protocol_message(ProtocolMessage::disconnect(node));
+    pub fn disconnect(&mut self, node: &T, alive: bool) {
+        self.handle_protocol_message(ProtocolMessage::disconnect(node, alive));
     }
 
     /// Handles the given incoming message.
@@ -127,17 +126,17 @@ where
     /// This method should be invoked periodically to keep the passive view fresh.
     pub fn shuffle_passive_view(&mut self) {
         if let Some(node) = self.select_random_from_active_view() {
-            self.rng.shuffle(&mut self.active_view);
             self.rng.shuffle(&mut self.passive_view);
+            self.rng.shuffle(&mut self.active_view);
 
-            let av_size = self.options.shuffle_active_view_size as usize;
             let pv_size = self.options.shuffle_passive_view_size as usize;
-            let shuffle_size = 1 + av_size + pv_size;
+            let av_size = self.options.shuffle_active_view_size as usize;
+            let shuffle_size = 1 + pv_size + av_size;
 
             let mut nodes = Vec::with_capacity(shuffle_size);
-            nodes.push(self.id.clone());
-            nodes.extend(self.active_view.iter().take(av_size).cloned());
             nodes.extend(self.passive_view.iter().take(pv_size).cloned());
+            nodes.extend(self.active_view.iter().take(av_size).cloned());
+            nodes.push(self.id.clone());
 
             let ttl = TimeToLive::new(self.options.active_random_walk_len);
             let message = ProtocolMessage::shuffle(&self.id, self.id.clone(), nodes, ttl);
@@ -221,8 +220,11 @@ where
     fn handle_shuffle(&mut self, m: ShuffleMessage<T>) {
         if m.ttl.is_expired() {
             self.rng.shuffle(&mut self.passive_view);
-            let offset = cmp::max(self.passive_view.len(), m.nodes.len()) - m.nodes.len();
-            let reply_nodes = self.passive_view.drain(offset..).collect();
+            let reply_nodes = self.passive_view
+                .iter()
+                .take(m.nodes.len())
+                .cloned()
+                .collect();
             let message = ProtocolMessage::shuffle_reply(&self.id, reply_nodes);
             send(&mut self.actions, m.origin.clone(), message);
             self.add_shuffled_nodes_to_passive_view(m.nodes);
@@ -241,6 +243,9 @@ where
     fn handle_disconnect(&mut self, m: &DisconnectMessage<T>) {
         if self.remove_from_active_view(&m.sender) {
             self.fill_active_view();
+        }
+        if !m.alive {
+            self.remove_from_passive_view(&m.sender);
         }
     }
 
@@ -289,7 +294,7 @@ where
         send(
             &mut self.actions,
             node.clone(),
-            ProtocolMessage::disconnect(&self.id),
+            ProtocolMessage::disconnect(&self.id, true),
         );
         self.actions.push_back(Action::disconnect(node.clone()));
         self.actions.push_back(Action::notify_down(node.clone()));
@@ -322,7 +327,7 @@ where
             send(
                 &mut self.actions,
                 node.clone(),
-                ProtocolMessage::disconnect(&self.id),
+                ProtocolMessage::disconnect(&self.id, true),
             );
             self.actions.push_back(Action::disconnect(node));
         }

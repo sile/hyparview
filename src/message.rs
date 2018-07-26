@@ -75,9 +75,10 @@ impl<T: Clone> ProtocolMessage<T> {
         })
     }
 
-    pub(crate) fn disconnect(sender: &T) -> Self {
+    pub(crate) fn disconnect(sender: &T, alive: bool) -> Self {
         ProtocolMessage::Disconnect(DisconnectMessage {
             sender: sender.clone(),
+            alive,
         })
     }
 }
@@ -191,4 +192,9 @@ pub struct ShuffleReplyMessage<T> {
 pub struct DisconnectMessage<T> {
     /// The node ID of the message sender.
     pub sender: T,
+
+    /// Whether the sender is alive or not.
+    ///
+    /// If it is `false`, the receiver of the message will remove the sender from its passive view.
+    pub alive: bool,
 }
