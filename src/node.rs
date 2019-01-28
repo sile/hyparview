@@ -220,7 +220,8 @@ where
     fn handle_shuffle(&mut self, m: ShuffleMessage<T>) {
         if m.ttl.is_expired() {
             self.rng.shuffle(&mut self.passive_view);
-            let reply_nodes = self.passive_view
+            let reply_nodes = self
+                .passive_view
                 .iter()
                 .take(m.nodes.len())
                 .cloned()
