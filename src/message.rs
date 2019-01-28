@@ -1,5 +1,5 @@
 //! Messages used for inter-node communication.
-use TimeToLive;
+use crate::TimeToLive;
 
 /// Messages used for inter-node communication.
 ///

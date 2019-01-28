@@ -6,8 +6,6 @@
 //!
 //! [HyParView]: http://asc.di.fct.unl.pt/~jleitao/pdf/dsn07-leitao.pdf
 #![warn(missing_docs)]
-extern crate rand;
-
 pub use action::Action;
 pub use event::Event;
 pub use node::Node;
@@ -24,7 +22,8 @@ pub mod message;
 
 #[cfg(test)]
 mod tests {
-    use rand::{self, ThreadRng};
+    use rand;
+    use rand::rngs::ThreadRng;
     use std::collections::HashSet;
     use std::hash::Hash;
 

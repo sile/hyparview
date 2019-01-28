@@ -1,5 +1,5 @@
-use message::ProtocolMessage;
-use Event;
+use crate::message::ProtocolMessage;
+use crate::Event;
 
 /// Actions instructed by HyParView [Node](./struct.Node.html).
 ///

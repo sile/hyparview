@@ -1,11 +1,12 @@
-use rand::{Rng, ThreadRng};
-use std::collections::VecDeque;
-
-use message::{
+use crate::message::{
     DisconnectMessage, ForwardJoinMessage, JoinMessage, NeighborMessage, ProtocolMessage,
     ShuffleMessage, ShuffleReplyMessage,
 };
-use {Action, NodeOptions, TimeToLive};
+use crate::{Action, NodeOptions, TimeToLive};
+use rand::rngs::ThreadRng;
+use rand::seq::SliceRandom;
+use rand::Rng;
+use std::collections::VecDeque;
 
 /// HyParView node.
 ///
@@ -126,8 +127,8 @@ where
     /// This method should be invoked periodically to keep the passive view fresh.
     pub fn shuffle_passive_view(&mut self) {
         if let Some(node) = self.select_random_from_active_view() {
-            self.rng.shuffle(&mut self.passive_view);
-            self.rng.shuffle(&mut self.active_view);
+            self.passive_view.shuffle(&mut self.rng);
+            self.active_view.shuffle(&mut self.rng);
 
             let pv_size = self.options.shuffle_passive_view_size as usize;
             let av_size = self.options.shuffle_active_view_size as usize;
@@ -219,7 +220,7 @@ where
 
     fn handle_shuffle(&mut self, m: ShuffleMessage<T>) {
         if m.ttl.is_expired() {
-            self.rng.shuffle(&mut self.passive_view);
+            self.passive_view.shuffle(&mut self.rng);
             let reply_nodes = self
                 .passive_view
                 .iter()

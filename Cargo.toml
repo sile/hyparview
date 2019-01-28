@@ -8,10 +8,11 @@ repository = "https://github.com/sile/hyparview"
 readme = "README.md"
 license = "MIT"
 categories = ["algorithms"]
+edition = "2018"
 
 [badges]
 travis-ci = {repository = "sile/hyparview"}
 codecov = {repository = "sile/hyparview"}
 
 [dependencies]
-rand = "0.5"
+rand = "0.6"
